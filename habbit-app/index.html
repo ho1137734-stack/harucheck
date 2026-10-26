@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>하루체크 · 습관 기록</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#218b5f">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <style>
+    :root {
+      --bg:#f3f7f5; --card:#fff; --text:#22312b; --muted:#677b71;
+      --green:#218b5f; --light:#e2f5e9; --border:#e4ece7;
+      --danger:#c74646; --amber:#d6a13e;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; padding:20px 12px 50px; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif; }
+    button,input { font:inherit; }
+    button { cursor:pointer; }
+    button:focus-visible,input:focus-visible { outline:3px solid #7dbd9b; outline-offset:2px; }
+    .app { width:min(100%,510px); margin:auto; }
+    .top { display:flex; justify-content:space-between; align-items:center; gap:12px; margin:4px 4px 20px; }
+    .brand { margin:0; font-size:1.7rem; font-weight:830; letter-spacing:-.055em; }
+    .sub { margin:5px 0 0; font-size:.9rem; color:var(--muted); }
+    .top-badge { background:var(--light); padding:7px 10px; border-radius:100px; color:var(--green); font-size:.8rem; font-weight:750; white-space:nowrap; }
+    .tabs { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; padding:5px; background:#e9f0eb; border-radius:15px; margin-bottom:16px; }
+    .tab { background:transparent; border:0; padding:11px 4px; border-radius:11px; color:#5e7166; font-weight:700; }
+    .tab[aria-selected="true"] { background:var(--card); color:var(--green); box-shadow:0 1px 5px #153b2417; }
+    .panel[hidden] { display:none !important; }
+    .card { background:var(--card); padding:20px; border-radius:18px; box-shadow:0 3px 18px #174a2b0a; border:1px solid #e9f0eb; margin-bottom:14px; }
+    .section-title { margin:0 0 14px; font-size:1.04rem; font-weight:780; letter-spacing:-.02em; }
+    .date-row { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:12px; color:var(--muted); font-size:.87rem; }
+    .summary { color:var(--green); font-weight:800; }
+    .progress { height:12px; overflow:hidden; border-radius:30px; background:#e9eeea; }
+    .progress-bar { background:linear-gradient(90deg,#66c48d,#218b5f); height:100%; width:0; border-radius:30px; transition:width .3s ease; }
+    .progress-caption { margin:10px 0 0; font-size:.87rem; color:var(--muted); }
+    .form { display:flex; gap:8px; margin:0; }
+    .form input { flex:1; min-width:0; border:1px solid #d8e3dc; border-radius:11px; padding:13px; background:#fff; }
+    .add-btn { border:0; background:var(--green); color:#fff; padding:12px 16px; border-radius:11px; font-weight:760; }
+    .msg { margin:7px 0 0; color:var(--danger); min-height:18px; font-size:.81rem; }
+    .habit-list { list-style:none; padding:0; margin:0; }
+    .habit-list li { display:flex; align-items:center; gap:8px; padding:12px 0; border-bottom:1px solid var(--border); }
+    .habit-list li:last-child { border-bottom:none; }
+    .habit-list label { display:flex; align-items:center; flex:1; gap:12px; cursor:pointer; min-width:0; }
+    .habit-list input { width:21px; height:21px; accent-color:var(--green); flex-shrink:0; }
+    .habit-list .name { overflow-wrap:anywhere; }
+    .habit-list .done .name { color:var(--muted); text-decoration:line-through; }
+    .del-btn { color:#8b9990; background:transparent; border:0; padding:7px; font-size:.83rem; }
+    .del-btn:hover { color:var(--danger); }
+    .empty { color:var(--muted); text-align:center; padding:24px 0 !important; font-size:.9rem; }
+    .hint { margin:4px 2px 0; color:var(--muted); font-size:.8rem; line-height:1.6; }
+    .calendar-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+    .month-label { font-weight:820; font-size:1.08rem; }
+    .month-arrows { display:flex; gap:6px; }
+    .icon-btn { width:36px; height:36px; background:#f3f7f4; border:0; color:var(--text); border-radius:10px; font-size:1.2rem; }
+    .icon-btn:disabled { color:#b7c4bb; cursor:not-allowed; }
+    .weekdays,.day-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:6px; }
+    .weekdays { margin-bottom:8px; }
+    .weekdays span { color:var(--muted); text-align:center; font-size:.75rem; font-weight:700; }
+    .weekdays span:first-child { color:#cb7373; }
+    .day { aspect-ratio:1 / 1.05; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:6px; background:#f8faf9; color:var(--text); border:2px solid transparent; border-radius:11px; padding:2px; font-size:.88rem; }
+    .day:disabled { opacity:.3; cursor:default; }
+    .day.today { font-weight:820; color:var(--green); }
+    .day.selected { border-color:var(--green); background:#eef8f0; }
+    .day.blank { visibility:hidden; }
+    .mark { height:5px; width:19px; border-radius:9px; background:#dce5df; }
+    .mark.full { background:#30aa6f; }
+    .mark.partial { background:#e5ba55; }
+    .mark.zero { background:#d3dfd7; }
+    .mark.none { background:transparent; }
+    .legend { display:flex; gap:14px; flex-wrap:wrap; margin-top:16px; font-size:.76rem; color:var(--muted); }
+    .legend-label { display:flex; align-items:center; gap:6px; }
+    .dot { width:9px; height:9px; border-radius:3px; background:#30aa6f; }
+    .dot.partial { background:#e5ba55; }
+    .dot.zero { background:#d3dfd7; }
+    .detail-title { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .detail-total { color:var(--green); font-weight:800; white-space:nowrap; }
+    .detail-list { margin:8px 0 0; padding:0; list-style:none; }
+    .detail-list li { display:flex; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); font-size:.92rem; }
+    .detail-list li:last-child { border-bottom:0; }
+    .detail-check { width:21px; height:21px; flex:none; border-radius:7px; background:#eef1ee; text-align:center; color:#9cac9f; font-weight:800; }
+    .detail-check.yes { background:var(--light); color:var(--green); }
+    .muted { color:var(--muted); }
+    .stats-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+    .stat { border:1px solid var(--border); border-radius:14px; padding:15px; background:#fbfdfb; }
+    .stat .small { color:var(--muted); font-size:.8rem; }
+    .stat .value { display:block; margin:10px 0 4px; font-size:1.55rem; font-weight:850; color:var(--green); font-variant-numeric:tabular-nums; }
+    .stat .foot { color:var(--muted); font-size:.72rem; }
+    .bars { display:flex; align-items:flex-end; justify-content:space-between; gap:8px; min-height:170px; padding:15px 4px 2px; }
+    .bar-col { flex:1; display:flex; align-items:center; flex-direction:column; gap:7px; min-width:0; }
+    .bar-track { position:relative; height:105px; width:100%; max-width:31px; border-radius:8px; background:#edf2ef; overflow:hidden; }
+    .bar-fill { position:absolute; bottom:0; left:0; right:0; border-radius:7px; background:#50b983; min-height:0; }
+    .bar-value { font-size:.7rem; color:var(--muted); font-variant-numeric:tabular-nums; }
+    .bar-day { font-size:.74rem; color:var(--muted); white-space:nowrap; }
+    .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
+    #confetti { position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:1000; }
+    .toast { position:fixed; z-index:1001; top:18px; left:50%; transform:translate(-50%,-20px); background:#1f764f; color:white; font-weight:800; padding:13px 22px; border-radius:100px; box-shadow:0 10px 30px #143d2b33; opacity:0; pointer-events:none; transition:opacity .25s,transform .25s; white-space:nowrap; max-width:95vw; font-size:.9rem; }
+    .toast.show { opacity:1; transform:translate(-50%,0); }
+    @media(max-width:380px) { .card{padding:15px;} .day-grid,.weekdays{gap:3px;} .day{font-size:.81rem;} .top-badge{display:none;} }
+    @media(prefers-reduced-motion:reduce) { *,*::before,*::after { transition:none !important; } }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="top">
+      <div>
+        <h1 class="brand">🌱 하루체크</h1>
+        <p class="sub">작은 습관이 만드는 꾸준한 변화</p>
+      </div>
+      <span class="top-badge">매일 한 걸음씩</span>
+    </header>
+
+    <div class="tabs" role="tablist" aria-label="화면 선택">
+      <button id="tabToday" class="tab" role="tab" aria-controls="todayPanel" aria-selected="true" type="button">✓ 오늘</button>
+      <button id="tabHistory" class="tab" role="tab" aria-controls="historyPanel" aria-selected="false" type="button">▦ 캘린더</button>
+      <button id="tabStats" class="tab" role="tab" aria-controls="statsPanel" aria-selected="false" type="button">▥ 통계</button>
+    </div>
+
+    <section id="todayPanel" class="panel" role="tabpanel" aria-labelledby="tabToday">
+      <div class="card">
+        <div class="date-row"><span id="todayLabel"></span><span id="summary" class="summary" aria-live="polite"></span></div>
+        <div class="progress" aria-label="오늘 달성률"><div id="progressBar" class="progress-bar"></div></div>
+        <p id="progressCaption" class="progress-caption"></p>
+      </div>
+      <div class="card">
+        <h2 class="section-title">오늘의 습관</h2>
+        <form class="form" id="habitForm" autocomplete="off">
+          <label class="sr-only" for="habitInput">새 습관 이름</label>
+          <input id="habitInput" type="text" maxlength="50" placeholder="예: 물 2L 마시기">
+          <button class="add-btn" type="submit">추가</button>
+        </form>
+        <p id="msg" class="msg" role="alert"></p>
+        <ul id="habitList" class="habit-list"></ul>
+      </div>
+      <p class="hint">오늘 완료한 습관은 자동으로 저장돼요. 지난 기록은 캘린더에서 확인할 수 있어요.</p>
+    </section>
+
+    <section id="historyPanel" class="panel" role="tabpanel" aria-labelledby="tabHistory" hidden>
+      <div class="card">
+        <div class="calendar-head">
+          <span id="monthLabel" class="month-label"></span>
+          <div class="month-arrows">
+            <button id="prevMonth" class="icon-btn" type="button" aria-label="이전 달">‹</button>
+            <button id="nextMonth" class="icon-btn" type="button" aria-label="다음 달">›</button>
+          </div>
+        </div>
+        <div class="weekdays" aria-hidden="true"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+        <div id="dayGrid" class="day-grid" aria-label="습관 달성 달력"></div>
+        <div class="legend" aria-label="달성률 범례">
+          <span class="legend-label"><i class="dot"></i>100% 달성</span>
+          <span class="legend-label"><i class="dot partial"></i>일부 달성</span>
+          <span class="legend-label"><i class="dot zero"></i>미완료</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="detail-title">
+          <h2 class="section-title" id="detailDate" style="margin:0"></h2>
+          <span id="detailTotal" class="detail-total"></span>
+        </div>
+        <ul id="detailList" class="detail-list"></ul>
+        <p id="detailEmpty" class="hint" hidden></p>
+        <p class="hint">과거 기록은 조회만 가능해요. 오늘 체크는 '오늘' 화면에서 변경하세요.</p>
+      </div>
+    </section>
+
+    <section id="statsPanel" class="panel" role="tabpanel" aria-labelledby="tabStats" hidden>
+      <div class="card">
+        <h2 class="section-title">나의 달성률</h2>
+        <div class="stats-grid">
+          <div class="stat"><span class="small">최근 7일 평균</span><strong class="value" id="weekAvg">—</strong><span class="foot">활동한 날짜의 평균</span></div>
+          <div class="stat"><span class="small">이번 달 평균</span><strong class="value" id="monthAvg">—</strong><span class="foot">오늘까지의 기록</span></div>
+          <div class="stat"><span class="small">연속 완벽 달성</span><strong class="value" id="streak">0일</strong><span class="foot">100% 달성한 연속 일수</span></div>
+          <div class="stat"><span class="small">이번 달 완료 횟수</span><strong class="value" id="monthDone">0회</strong><span class="foot">습관별 완료 횟수 합계</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2 class="section-title">최근 7일 달성률</h2>
+        <div id="weekBars" class="bars" role="img" aria-label="최근 7일 날짜별 습관 달성률 그래프"></div>
+      </div>
+      <p class="hint">습관이 하나도 없던 날짜는 평균에서 제외해요. 이 브라우저에 저장된 기록을 기준으로 계산해요.</p>
+    </section>
+  </main>
+  <canvas id="confetti" aria-hidden="true"></canvas>
+  <div id="toast" class="toast" role="status" aria-live="polite">🎉 오늘 목표 100% 달성!</div>
+
+  <script>
+    (() => {
+      'use strict';
+      // 기존 앱과 동일한 저장 키를 사용하여 기존 습관 / 날짜별 체크 기록을 유지합니다.
+      const STORAGE_KEY = 'harucheck:v1';
+      const $ = id => document.getElementById(id);
+      const localDay = (date = new Date()) => {
+        const y = date.getFullYear(), m = String(date.getMonth()+1).padStart(2,'0'), d = String(date.getDate()).padStart(2,'0');
+        return `${y}-${m}-${d}`;
+      };
+      const parseDay = key => {
+        const [y,m,d] = key.split('-').map(Number);
+        return new Date(y,m-1,d);
+      };
+      const addDays = (d,n) => new Date(d.getFullYear(),d.getMonth(),d.getDate()+n);
+      const createId = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : Date.now().toString(36)+Math.random().toString(36).slice(2);
+      const emptyState = () => ({habits:[],checks:{}});
+
+      function loadState() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return emptyState();
+          const data = JSON.parse(raw);
+          const habits = Array.isArray(data?.habits) ? data.habits.filter(h => h && typeof h.id==='string' && typeof h.name==='string').map(h => ({
+            id:h.id, name:h.name, createdAt:Number.isFinite(h.createdAt)?h.createdAt:0,
+            ...(Number.isFinite(h.deletedAt) ? {deletedAt:h.deletedAt} : {})
+          })) : [];
+          const checks = {};
+          if (data?.checks && typeof data.checks==='object' && !Array.isArray(data.checks)) {
+            for (const [day,ids] of Object.entries(data.checks)) {
+              if (/^\d{4}-\d{2}-\d{2}$/.test(day) && Array.isArray(ids)) {
+                checks[day] = [...new Set(ids.filter(id => typeof id==='string'))];
+              }
+            }
+          }
+          return {habits,checks};
+        } catch(e) { console.warn('저장 데이터 읽기 실패',e); return emptyState(); }
+      }
+      let state = loadState();
+      let currentDay = localDay();
+      let selectedDay = currentDay;
+      let viewMonth = new Date(new Date().getFullYear(),new Date().getMonth(),1);
+      let activeTab = 'today';
+      let animationId = null;
+      let toastTimeout = null;
+
+      function saveState() {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); return true; }
+        catch(e) { console.error('저장 실패',e); return false; }
+      }
+      function showMsg(s) { $('msg').textContent=s; }
+      function commit(mutator) {
+        const backup = JSON.stringify(state);
+        mutator(state);
+        if (!saveState()) {
+          state = JSON.parse(backup);
+          showMsg('저장할 수 없어요. 브라우저 저장 공간을 확인해 주세요.');
+          render();
+          return false;
+        }
+        render();
+        return true;
+      }
+      function activeHabits(day) {
+        return state.habits.filter(h => {
+          const created = h.createdAt ? localDay(new Date(h.createdAt)) : '0000-01-01';
+          const deleted = h.deletedAt ? localDay(new Date(h.deletedAt)) : null;
+          return created<=day && (!deleted || day<deleted);
+        });
+      }
+      function dayStats(day) {
+        const habits=activeHabits(day), ids=new Set(state.checks[day]||[]);
+        const done=habits.filter(h=>ids.has(h.id)).length;
+        return {habits,ids,total:habits.length,done,percent:habits.length?Math.round(done/habits.length*100):null};
+      }
+      function syncDay() {
+        const today=localDay();
+        if(today!==currentDay) {
+          if(selectedDay===currentDay) selectedDay=today;
+          currentDay=today;
+          viewMonth=new Date(new Date().getFullYear(),new Date().getMonth(),1);
+          render();
+        }
+      }
+      function addHabit(value) {
+        const name=value.trim().replace(/\s+/g,' ').slice(0,50);
+        if(!name) { showMsg('습관 이름을 입력해 주세요.'); return false; }
+        if(activeHabits(currentDay).some(h=>h.name.toLowerCase()===name.toLowerCase())) {
+          showMsg('이미 있는 습관이에요.'); return false;
+        }
+        return commit(s=>s.habits.push({id:createId(),name,createdAt:Date.now()}));
+      }
+      function toggleHabit(id, checked) {
+        syncDay();
+        if(!activeHabits(currentDay).some(h=>h.id===id)) return;
+        const before=dayStats(currentDay);
+        const success=commit(s=>{
+          const ids=new Set(s.checks[currentDay]||[]);
+          if(checked) ids.add(id); else ids.delete(id);
+          if(ids.size) s.checks[currentDay]=[...ids];
+          else delete s.checks[currentDay];
+        });
+        const after=dayStats(currentDay);
+        if(success && checked && before.percent!==100 && after.total>0 && after.percent===100) celebrate();
+      }
+      function deleteHabit(id) {
+        const habit=activeHabits(currentDay).find(h=>h.id===id);
+        if(!habit) return;
+        if(!confirm(`'${habit.name}' 습관을 목록에서 삭제할까요?\n이전 날짜의 기록은 유지됩니다.`)) return;
+        commit(s=>{
+          const target=s.habits.find(h=>h.id===id);
+          if(target) target.deletedAt=Date.now();
+          // 이전 날짜의 체크 기록은 삭제하지 않고 보존합니다.
+        });
+      }
+
+      function renderToday() {
+        const stats=dayStats(currentDay);
+        $('todayLabel').textContent=new Intl.DateTimeFormat('ko-KR',{month:'long',day:'numeric',weekday:'short'}).format(new Date());
+        $('summary').textContent=stats.total ? `${stats.done} / ${stats.total} 완료` : '오늘의 시작';
+        $('progressBar').style.width=`${stats.percent||0}%`;
+        $('progressCaption').textContent=stats.total ? `${stats.percent}% 달성 · ${stats.total-stats.done}개 남았어요` : '습관을 추가하면 달성률이 표시돼요.';
+        const nodes=stats.habits.map(h=>{
+          const li=document.createElement('li'); li.dataset.id=h.id;
+          const yes=stats.ids.has(h.id);
+          if(yes) li.classList.add('done');
+          const label=document.createElement('label');
+          const check=document.createElement('input'); check.type='checkbox'; check.checked=yes;
+          check.setAttribute('aria-label',`${h.name} 완료 여부`);
+          const name=document.createElement('span'); name.className='name'; name.textContent=h.name;
+          label.append(check,name);
+          const del=document.createElement('button'); del.type='button'; del.className='del-btn'; del.textContent='삭제';
+          del.setAttribute('aria-label',`${h.name} 삭제`);
+          li.append(label,del); return li;
+        });
+        if(!nodes.length) {
+          const empty=document.createElement('li'); empty.className='empty';
+          empty.textContent='아직 습관이 없어요. 첫 습관을 추가해 보세요.';
+          nodes.push(empty);
+        }
+        $('habitList').replaceChildren(...nodes);
+      }
+      function renderCalendar() {
+        const year=viewMonth.getFullYear(), month=viewMonth.getMonth();
+        const curr=new Date();
+        $('monthLabel').textContent=`${year}년 ${month+1}월`;
+        $('nextMonth').disabled=year>=curr.getFullYear() && month>=curr.getMonth();
+        const offset=new Date(year,month,1).getDay();
+        const count=new Date(year,month+1,0).getDate();
+        const nodes=[];
+        for(let i=0;i<offset;i++) {
+          const blank=document.createElement('span'); blank.className='day blank'; nodes.push(blank);
+        }
+        for(let day=1;day<=count;day++) {
+          const key=localDay(new Date(year,month,day));
+          const s=dayStats(key);
+          const btn=document.createElement('button'); btn.type='button'; btn.className='day'; btn.dataset.day=key;
+          const future=key>currentDay;
+          btn.disabled=future;
+          if(key===currentDay) btn.classList.add('today');
+          if(key===selectedDay) { btn.classList.add('selected'); btn.setAttribute('aria-pressed','true'); }
+          const num=document.createElement('span'); num.textContent=String(day);
+          const mark=document.createElement('span'); mark.className='mark '+(s.percent===null?'none':s.percent===100?'full':s.percent===0?'zero':'partial');
+          btn.setAttribute('aria-label',`${month+1}월 ${day}일, ${s.percent===null?'습관 기록 없음':`달성률 ${s.percent}%`}`);
+          btn.append(num,mark); nodes.push(btn);
+        }
+        $('dayGrid').replaceChildren(...nodes);
+      }
+      function renderDetails() {
+        const dt=parseDay(selectedDay), s=dayStats(selectedDay);
+        $('detailDate').textContent=new Intl.DateTimeFormat('ko-KR',{month:'long',day:'numeric',weekday:'short'}).format(dt)+' 기록';
+        $('detailTotal').textContent=s.total ? `${s.done} / ${s.total} 완료` : '기록 없음';
+        const nodes=s.habits.map(h=>{
+          const li=document.createElement('li');
+          const mark=document.createElement('span'); mark.className='detail-check'+(s.ids.has(h.id)?' yes':'');
+          mark.textContent=s.ids.has(h.id)?'✓':'–';
+          const title=document.createElement('span'); title.textContent=h.name;
+          if(!s.ids.has(h.id)) title.className='muted';
+          li.append(mark,title); return li;
+        });
+        $('detailList').replaceChildren(...nodes);
+        $('detailEmpty').hidden=s.total!==0;
+        if(!s.total) $('detailEmpty').textContent='이 날짜에는 등록된 습관이 없어요.';
+      }
+      function dateRange(end,days) {
+        const endDate=parseDay(end);
+        return Array.from({length:days},(_,i)=>localDay(addDays(endDate,i-days+1)));
+      }
+      function average(days) {
+        const values=days.map(dayStats).filter(s=>s.percent!==null);
+        if(!values.length) return null;
+        return Math.round(values.reduce((sum,s)=>sum+s.done/s.total*100,0)/values.length);
+      }
+      function streak() {
+        let date=parseDay(currentDay);
+        // 오늘이 아직 미완료라면 어제까지 이어진 완벽 달성을 세어 줍니다.
+        if(dayStats(currentDay).percent!==100) date=addDays(date,-1);
+        let count=0;
+        while(count<20000 && dayStats(localDay(date)).percent===100) {
+          count++; date=addDays(date,-1);
+        }
+        return count;
+      }
+      function renderStats() {
+        const week=dateRange(currentDay,7);
+        const d=new Date();
+        const month=[];
+        for(let n=1;n<=d.getDate();n++) month.push(localDay(new Date(d.getFullYear(),d.getMonth(),n)));
+        const w=average(week), m=average(month);
+        $('weekAvg').textContent=w===null?'—':`${w}%`;
+        $('monthAvg').textContent=m===null?'—':`${m}%`;
+        $('streak').textContent=`${streak()}일`;
+        $('monthDone').textContent=`${month.reduce((acc,day)=>acc+dayStats(day).done,0)}회`;
+        const nodes=week.map(day=>{
+          const s=dayStats(day), col=document.createElement('div'); col.className='bar-col';
+          const value=document.createElement('span'); value.className='bar-value'; value.textContent=s.percent===null?'—':`${s.percent}%`;
+          const track=document.createElement('span'); track.className='bar-track';
+          const fill=document.createElement('span'); fill.className='bar-fill'; fill.style.height=`${s.percent||0}%`;
+          track.append(fill);
+          const title=document.createElement('span'); title.className='bar-day'; title.textContent=`${parseDay(day).getMonth()+1}/${parseDay(day).getDate()}`;
+          col.append(value,track,title); return col;
+        });
+        $('weekBars').replaceChildren(...nodes);
+        $('weekBars').setAttribute('aria-label',week.map(day=>`${day} ${dayStats(day).percent??'기록 없음'}${dayStats(day).percent===null?'':'%'}`).join(', '));
+      }
+      function render() { renderToday(); renderCalendar(); renderDetails(); renderStats(); }
+      function setTab(tab) {
+        activeTab=tab;
+        for(const t of ['today','history','stats']) {
+          const name=t[0].toUpperCase()+t.slice(1);
+          $('tab'+name).setAttribute('aria-selected',String(t===tab));
+          $(t+'Panel').hidden=t!==tab;
+        }
+        if(tab==='history') { selectedDay=currentDay; viewMonth=new Date(new Date().getFullYear(),new Date().getMonth(),1); renderCalendar(); renderDetails(); }
+        if(tab==='stats') renderStats();
+      }
+      function celebrate() {
+        const toast=$('toast');
+if (dayStats(currentDay).total >= 3) {
+  toast.textContent = '🏆 대단해! 3개 이상의 습관을 모두 완료했어!';
+} else {
+  toast.textContent = '🎉 오늘 목표 100% 달성!';
+}
+
+        toast.classList.add('show');
+        clearTimeout(toastTimeout);
+        toastTimeout=setTimeout(()=>toast.classList.remove('show'),2700);
+        if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        const canvas=$('confetti'), ctx=canvas.getContext('2d');
+        if(!ctx) return;
+        if(animationId!==null) cancelAnimationFrame(animationId);
+        const dpr=Math.min(window.devicePixelRatio||1,2);
+        canvas.width=Math.round(innerWidth*dpr); canvas.height=Math.round(innerHeight*dpr);
+        ctx.setTransform(dpr,0,0,dpr,0,0);
+        const width=innerWidth,height=innerHeight;
+        const colors=['#24a56d','#f6cd58','#f48f79','#70b3f2','#b49aea','#ff6e9f'];
+        const pieces=Array.from({length:300},()=>({x:Math.random()*width,y:-40-Math.random()*height*.6,
+          vx:(Math.random()-.5)*4,vy:2.7+Math.random()*4,size:4+Math.random()*5,
+          rotation:Math.random()*Math.PI,color:colors[Math.floor(Math.random()*colors.length)]}));
+        const started=performance.now();
+        function frame(time) {
+          ctx.clearRect(0,0,width,height);
+          const elapsed=time-started;
+          for(const p of pieces) {
+            p.x+=p.vx+Math.sin(time/220+p.rotation)*.6; p.y+=p.vy;
+            p.rotation+=.06;
+            ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rotation);
+            ctx.fillStyle=p.color; ctx.fillRect(-p.size/2,-p.size/2,p.size,p.size*.65); ctx.restore();
+          }
+          if(elapsed<2500) animationId=requestAnimationFrame(frame);
+          else { ctx.clearRect(0,0,width,height); animationId=null; }
+        }
+        animationId=requestAnimationFrame(frame);
+      }
+
+      
+$('habitForm').addEventListener('submit', e => {
+  e.preventDefault();
+  syncDay();
+
+  const name = $('habitInput').value;
+
+  if (addHabit(name)) {
+    $('habitInput').value = '';
+    showMsg('');
+
+    
+if (name.includes('운동')) {
+  alert('💪 오늘도 건강한 몸을 만들어 보자!');
+} else if (name.includes('공부')) {
+  alert('📚 오늘 배운 지식이 내일의 실력이 된다!');
+} else if (name.includes('독서')) {
+  alert('📖 하루 한 페이지씩 성장하자!');
+} else {
+  alert('🌱 새로운 습관을 시작한 걸 축하해!');
+}
+
+  }
+
+  $('habitInput').focus();
+});
+
+      $('habitInput').addEventListener('input',()=>showMsg(''));
+      $('habitList').addEventListener('change',e=>{
+        if(e.target.matches('input[type="checkbox"]')) toggleHabit(e.target.closest('li').dataset.id,e.target.checked);
+      });
+      $('habitList').addEventListener('click',e=>{
+        const button=e.target.closest('.del-btn');
+        if(button) deleteHabit(button.closest('li').dataset.id);
+      });
+      $('tabToday').addEventListener('click',()=>setTab('today'));
+      $('tabHistory').addEventListener('click',()=>setTab('history'));
+      $('tabStats').addEventListener('click',()=>setTab('stats'));
+      $('prevMonth').addEventListener('click',()=>{
+        viewMonth=new Date(viewMonth.getFullYear(),viewMonth.getMonth()-1,1); renderCalendar();
+      });
+      $('nextMonth').addEventListener('click',()=>{
+        const next=new Date(viewMonth.getFullYear(),viewMonth.getMonth()+1,1);
+        if(next<=new Date(new Date().getFullYear(),new Date().getMonth(),1)) {viewMonth=next; renderCalendar();}
+      });
+      $('dayGrid').addEventListener('click',e=>{
+        const button=e.target.closest('button[data-day]');
+        if(button && !button.disabled) {selectedDay=button.dataset.day; renderCalendar(); renderDetails();}
+      });
+      setInterval(syncDay,60000);
+      document.addEventListener('visibilitychange',()=>{if(!document.hidden) syncDay();});
+      window.addEventListener('storage',e=>{if(e.key===STORAGE_KEY){state=loadState();render();}});
+      render();
+    })();
+    // 기존 PWA 파일을 그대로 재사용합니다. localhost / https 환경에서 작동합니다.
+    if('serviceWorker' in navigator) {
+      window.addEventListener('load',()=>navigator.serviceWorker.register('service-worker.js').catch(e=>console.warn('서비스 워커 등록 실패',e)));
+    }
+  </script>
+</body>
+</html>
